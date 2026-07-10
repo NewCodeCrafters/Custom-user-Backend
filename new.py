@@ -1,0 +1,3 @@
+from rest_framework.settings import api_settings
+
+print(api_settings.DEFAULT_AUTHENTICATION_CLASSES)

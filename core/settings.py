@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
+    "drf_yasg",
 
     "user",
 ]
@@ -111,4 +113,72 @@ MEDIA_ROOT = "media"
 
 AUTH_USER_MODEL = "user.User"
 
+from datetime import timedelta
 
+
+class FlexibleJWTAuthentication:
+    www_authenticate_realm = "api"
+
+    def __init__(self):
+        self.authenticator = None
+
+    def get_authenticator(self):
+        if self.authenticator is None:
+            from rest_framework_simplejwt.authentication import JWTAuthentication
+
+            self.authenticator = JWTAuthentication()
+
+        return self.authenticator
+
+    def authenticate(self, request):
+        authenticator = self.get_authenticator()
+        header = authenticator.get_header(request)
+
+        if header is None:
+            return None
+
+        raw_token = self.get_raw_token(header)
+
+        if raw_token is None:
+            return None
+
+        validated_token = authenticator.get_validated_token(raw_token)
+        return authenticator.get_user(validated_token), validated_token
+
+    def get_raw_token(self, header):
+        parts = header.split()
+
+        if len(parts) == 1:
+            return parts[0]
+
+        return self.get_authenticator().get_raw_token(header)
+
+    def authenticate_header(self, request):
+        return self.get_authenticator().authenticate_header(request)
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "core.settings.FlexibleJWTAuthentication",
+    ),
+}
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+SWAGGER_SETTINGS = {
+    "USE_SESSION_AUTH": False,
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": (
+                "JWT Authorization header using the Bearer scheme.\n\n"
+                "Example:\n"
+                "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            ),
+        }
+    },
+}
